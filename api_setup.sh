@@ -20,4 +20,4 @@ gcloud services enable compute.googleapis.com
 gcloud services enable firestore.googleapis.com
 gcloud services enable cloudresourcemanager.googleapis.com
 gcloud services enable storage.googleapis.com
-gcloud firestore databases create --location=us-central1 --type=firestore-native > /dev/null 2> /dev/null
+gcloud services enable secretmanager.googleapis.com
