@@ -117,7 +117,7 @@ locals {
     google_secret_manager_secret.edavis_secret.secret_id,
     google_secret_manager_secret.rpatel_secret.secret_id,
     google_secret_manager_secret.akumar_secret.secret_id,
-    google_secret_manager_secret.admin_secret.secret_id,
+    google_secret_manager_secret.admin_secret.secret_id
   ]
 }
 
