@@ -53,7 +53,7 @@ if [[ -z "$admin_credentials" ]]; then
    fi
 
    # Define the expected admin username in the correct format (domain\user).
-   username="MCLOUD\\\\setupadmin"
+   username="MCLOUD\\setupadmin"
 
    # Construct a JSON payload containing the username and the newly reset password.
    json_payload=$(jq -n \
