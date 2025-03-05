@@ -43,7 +43,7 @@ resource "google_compute_instance" "windows_ad_instance" {
 
   # Metadata for Startup Script
   metadata = {
-    windows-startup-script-ps1 = templatefile("./scripts/ad-join.ps1", {
+    windows-startup-script-ps1 = templatefile("./scripts/ad_join.ps1", {
       domain_fqdn =  "mcloud.mikecloud.com"
       computers_ou = "OU=Computers,OU=Cloud,DC=mcloud,DC=mikecloud,DC=com"
     })
