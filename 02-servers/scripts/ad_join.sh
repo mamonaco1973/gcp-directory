@@ -31,7 +31,6 @@ apt-get install less unzip realmd sssd-ad sssd-tools libnss-sss \
 # ---------------------------------------------------------------------------------
 
 # Retrieve the secret value (AD admin credentials) from AWS Secrets Manager.
-# - ${admin_secret}: The name of the secret containing the AD admin credentials.
 secretValue=$(gcloud secrets versions access latest --secret="admin-ad-credentials")
 
 # Extract the admin password from the secret value using `jq`.
