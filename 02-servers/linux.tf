@@ -47,7 +47,11 @@ resource "google_compute_instance" "linux_ad_instance" {
         enable-oslogin = "TRUE"
   }
 
-
+ service_account {
+    email  = local.service_account_email # Use the existing service account
+    scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+  }
+  
   # Metadata for Startup Script
   # metadata_startup_script = file("./scripts/startup_script.sh")  # Runs a startup script upon instance boot.
 

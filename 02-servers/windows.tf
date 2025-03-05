@@ -36,6 +36,11 @@ resource "google_compute_instance" "windows_ad_instance" {
     access_config {}                  # Automatically assigns a public IP for external access
   }
 
+  service_account {
+    email  = local.service_account_email # Use the existing service account
+    scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+  }
+
   # Tags for Firewall Rules
   tags = ["allow-rdp"]                  # Matches firewall rule for RDP access
 }
