@@ -17,6 +17,11 @@ terraform init
 # Apply the Terraform configuration, automatically approving all changes (no manual confirmation required).
 terraform apply -auto-approve
 
+if [ $? -ne 0 ]; then
+  echo "ERROR: Terraform apply failed in 01-directory. Exiting."
+  exit 1
+fi
+
 # Return to the previous (parent) directory.
 cd ..
 

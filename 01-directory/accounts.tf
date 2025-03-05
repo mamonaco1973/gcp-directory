@@ -128,6 +128,6 @@ resource "google_secret_manager_secret_iam_binding" "secret_access" {
   role      = "roles/secretmanager.secretAccessor"
 
   members = [
-    "serviceAccount:${google_service_account.vm_service_account.email}"
+    "serviceAccount:${local.service_account_email}" # Use the existing service account
   ]
 }
