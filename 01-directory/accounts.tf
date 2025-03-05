@@ -109,3 +109,25 @@ resource "google_secret_manager_secret" "admin_secret" {
     auto {}
   }
 }
+
+# List of all secret IDs
+locals {
+  secrets = [
+    google_secret_manager_secret.jsmith_secret.secret_id,
+    google_secret_manager_secret.edavis_secret.secret_id,
+    google_secret_manager_secret.rpatel_secret.secret_id,
+    google_secret_manager_secret.akumar_secret.secret_id,
+    google_secret_manager_secret.admin_secret.secret_id,
+  ]
+}
+
+# Grant the service account access to all secrets
+resource "google_secret_manager_secret_iam_binding" "secret_access" {
+  for_each = toset(local.secrets) # Loop through each secret
+  secret_id = each.key
+  role      = "roles/secretmanager.secretAccessor"
+
+  members = [
+    "serviceAccount:${google_service_account.vm_service_account.email}"
+  ]
+}
