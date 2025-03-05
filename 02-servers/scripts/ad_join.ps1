@@ -64,7 +64,7 @@ function Create-ADUserFromSecret {
     $global:uidCounter++
     $uidNumber = $global:uidCounter
 
-    $secretValue = az keyvault secret show --name $SecretId --vault-name ${vault_name} --query value -o tsv
+    $secretValue  = gcloud secrets versions access latest --secret="$SecretId"
     $secretObject = $secretValue | ConvertFrom-Json
     $password = $secretObject.password | ConvertTo-SecureString -AsPlainText -Force
 
