@@ -41,6 +41,14 @@ resource "google_compute_instance" "windows_ad_instance" {
     scopes = ["https://www.googleapis.com/auth/cloud-platform"]
   }
 
+  # Metadata for Startup Script
+  metadata = {
+    windows-startup-script-ps1 = templatefile("./scripts/ad-join.ps1", {
+      domain_fqdn =  "mcloud.mikecloud.com"
+      computers_ou = "OU=Computers,OU=Cloud,DC=mcloud,DC=mikecloud,DC=com"
+    })
+  }
+
   # Tags for Firewall Rules
   tags = ["allow-rdp"]                  # Matches firewall rule for RDP access
 }

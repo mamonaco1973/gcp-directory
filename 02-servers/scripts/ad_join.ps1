@@ -8,7 +8,6 @@ $ProgressPreference = 'SilentlyContinue'
 # Install required Windows Features for Active Directory management
 Install-WindowsFeature -Name GPMC,RSAT-AD-PowerShell,RSAT-AD-AdminCenter,RSAT-ADDS-Tools,RSAT-DNS-Server
 
-
 # ------------------------------------------------------------
 # Join instance to active directory
 # ------------------------------------------------------------
@@ -16,7 +15,7 @@ Install-WindowsFeature -Name GPMC,RSAT-AD-PowerShell,RSAT-AD-AdminCenter,RSAT-AD
 $secretJson = gcloud secrets versions access latest --secret="admin-ad-credentials"
 $secretObject = $secretJson | ConvertFrom-Json
 $password = $secretObject.password | ConvertTo-SecureString -AsPlainText -Force
-$username = $secretObject.username -replace '^MCLOUD\\\\', ''
+$username = $secretObject.username
 $cred = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $username, $password
 
 Add-Computer -DomainName "${domain_fqdn}" -Credential $cred -Force -ErrorAction Stop
@@ -28,9 +27,8 @@ Write-Output "Successfully joined the domain."
 
 Write-Output "Create new OU for local users"
 
-New-ADOrganizationalUnit -Name "mcloud" -credential $cred
-New-ADOrganizationalUnit -Name "Users" -Path "OU=mcloud,DC=mcloud,DC=mikecloud,DC=com" -credential $cred
-$usersPath = "OU=Users,OU=mcloud,DC=mcloud,DC=mikecloud,DC=com"
+New-ADOrganizationalUnit -Name "Users" -Path "OU=Cloud,DC=mcloud,DC=mikecloud,DC=com" -credential $cred
+$usersPath = "OU=Users,OU=Cloud,DC=mcloud,DC=mikecloud,DC=com"
 
 # ------------------------------------------------------------
 # Create AD Groups for User Management
