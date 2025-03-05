@@ -69,6 +69,11 @@ sudo sed -i 's/use_fully_qualified_names = True/use_fully_qualified_names = Fals
 sudo sed -i 's/ldap_id_mapping = True/ldap_id_mapping = False/g' \
     /etc/sssd/sssd.conf
 
+# Allow all users to be able to SSH
+
+sudo sed -i 's/access_provider = ad/access_provider = simple/g' \
+    /etc/sssd/sssd.conf
+
 # Change the fallback home directory path to a simpler format (/home/%u).
 sudo sed -i 's|fallback_homedir = /home/%u@%d|fallback_homedir = /home/%u|' \
     /etc/sssd/sssd.conf
