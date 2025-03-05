@@ -43,15 +43,19 @@ resource "google_compute_instance" "linux_ad_instance" {
     access_config {}                        # Automatically assigns a public IP for external access.
   }
 
-  metadata = {
-        enable-oslogin = "TRUE"
+   metadata = {
+    enable-oslogin       = "TRUE"
+    startup-script       = templatefile("./scripts/ad_join.sh", {
+      domain_fqdn = "mcloud.mikecloud.com"
+      computers_ou = "OU=Computers,OU=Cloud,DC=mcloud,DC=mikecloud,DC=com"
+    })
   }
 
  service_account {
     email  = local.service_account_email # Use the existing service account
     scopes = ["https://www.googleapis.com/auth/cloud-platform"]
   }
-  
+
   # Metadata for Startup Script
   # metadata_startup_script = file("./scripts/startup_script.sh")  # Runs a startup script upon instance boot.
 
