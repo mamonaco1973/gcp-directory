@@ -6,5 +6,17 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+cd 01-directory
+
 terraform init
 terraform apply -auto-approve
+
+cd ..
+
+cd 02-servers
+
+terraform init
+terraform apply -auto-approve
+
+cd ..
+

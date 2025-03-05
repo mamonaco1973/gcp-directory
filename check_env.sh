@@ -36,3 +36,6 @@ fi
 
 gcloud auth activate-service-account --key-file="./credentials.json"
 
+export GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/credentials.json
+
+
