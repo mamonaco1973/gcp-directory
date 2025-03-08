@@ -78,7 +78,7 @@ Terraform has been successfully initialized!
 
 The build process consists of two phases:  
 
-1. **Phase 1:** Use Terraform to provision the required networking and deploy the Managed Active Directory instance. This phase takes approximately **20-30 minutes** to complete.  
+1. **Phase 1:** Use Terraform to provision the required networking and deploy the Managed Active Directory instance. This phase takes approximately **20-40 minutes** to complete.  
 2. **Phase 2:** Once the directory service is provisioned, deploy a Linux and a Windows VM instance. Their respective **startup scripts** will automatically join them to the domain during initialization.  
 
 ## Tour of Build Output in the GCP Console
@@ -88,7 +88,9 @@ The build process consists of two phases:
 - **The Windows VM Instance**
 - **The Linux VM Instance**
 
-![GCP Console](console.png)
+![GCP Console](console1.png)
+
+![GCP Console](console2.png) 
 
 ### Retrieving Initial Admin Credentials
 
@@ -163,6 +165,27 @@ Linux user credentials are stored as secrets.
 ## Run the "destroy" script when you are done
 
 ```bash
+develop-vm:~/gcp-directory$ ./destroy.sh
+Initializing the backend...
+Initializing provider plugins...
+- Reusing previous version of hashicorp/google from the dependency lock file
+- Reusing previous version of hashicorp/random from the dependency lock file
+- Using previously-installed hashicorp/google v6.24.0
+- Using previously-installed hashicorp/random v3.7.1
+
+Terraform has been successfully initialized!
+
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.
+random_string.vm_suffix: Refreshing state... [id=qewil5]
+data.google_compute_network.ad_vpc: Reading...
+data.google_compute_image.ubuntu_latest: Reading...
+data.google_compute_image.windows_2022: Reading...
 [...]
 ```
 
