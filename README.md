@@ -6,8 +6,8 @@ This is Part 3 of the Series: [Deploying Active Directory in the Cloud](TBD)
 
 In this video, we will demonstrate the deployment of **Google Managed Microsoft Active Directory (Managed AD)**, a fully managed **Active Directory** solution in Google Cloud, while covering the following tasks:  
 
-- **Deploy Google Managed Microsoft AD** to support domain-joined workloads.  
 - **Configure secure networking** by setting up subnets, firewall rules, and Cloud DNS to ensure seamless domain connectivity.  
+- **Deploy Google Managed Microsoft AD** to support domain-joined workloads.   
 - **Join both Windows and Linux servers** to the Active Directory domain.  
 - **Configure SSSD** ([System Security Services Daemon](https://sssd.io/)) for Linux authentication with Active Directory.  
 - **Integrate with Google Secret Manager** to securely store and retrieve administrator credentials.  
