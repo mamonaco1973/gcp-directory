@@ -1,6 +1,6 @@
 # **Google Managed Microsoft AD**  
 
-This is Part 3 of the Series: [Deploying Active Directory in the Cloud](TBD)  
+This is Part 3 of the Series: [Deploying Active Directory in the Cloud](https://youtu.be/H5lKJPJBL5s)  
 
 ## **Introduction**  
 
