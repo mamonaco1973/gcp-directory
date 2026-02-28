@@ -49,7 +49,7 @@ linux_ip="$(gcloud compute instances list \
 # ------------------------------------------------------------------------------
 echo ""
 echo "============================================================================"
-echo "Quick Start - Validation Output (GCP)"
+echo "Managed AD Quick Start - Validation Output (GCP)"
 echo "============================================================================"
 echo ""
 
