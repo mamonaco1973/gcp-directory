@@ -31,4 +31,11 @@ resource "google_active_directory_domain" "mikecloud_ad" {
   # For production environments, this is usually `true` to prevent accidental destruction of critical infrastructure.
   
   deletion_protection = false
+  
+  timeouts {
+    create = "2h"
+    update = "2h"
+    delete = "2h"
+  }
+
 }
