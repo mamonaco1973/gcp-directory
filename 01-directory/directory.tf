@@ -48,4 +48,11 @@ resource "google_active_directory_domain" "mikecloud_ad" {
   # Prevents accidental deletion when set to true.
   # Should typically be true in production environments.
   deletion_protection = false
+  
+  timeouts {
+    create = "3h"
+    update = "3h"
+    delete = "3h"
+  }
+
 }
