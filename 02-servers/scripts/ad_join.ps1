@@ -12,7 +12,7 @@ Install-WindowsFeature -Name GPMC,RSAT-AD-PowerShell,RSAT-AD-AdminCenter,RSAT-AD
 # Join instance to active directory
 # ------------------------------------------------------------
 
-$secretJson = gcloud secrets versions access latest --secret="admin-ad-credentials"
+$secretJson = gcloud secrets versions access latest --secret="admin-ad-credentials-ad"
 $secretObject = $secretJson | ConvertFrom-Json
 $password = $secretObject.password | ConvertTo-SecureString -AsPlainText -Force
 $username = $secretObject.username
@@ -97,10 +97,10 @@ function Create-ADUserFromSecret {
 
 Write-Output "Creating all local domain users"
 
-Create-ADUserFromSecret "jsmith-ad-credentials" "John" "Smith" "John Smith" "jsmith@mcloud.mikecloud.com" "jsmith" @("mcloud-users", "us", "linux-admins")
-Create-ADUserFromSecret "edavis-ad-credentials" "Emily" "Davis" "Emily Davis" "edavis@mikecloud.com" "edavis" @("mcloud-users", "us")
-Create-ADUserFromSecret "rpatel-ad-credentials" "Raj" "Patel" "Raj Patel" "rpatel@mikecloud.com" "rpatel" @("mcloud-users", "india", "linux-admins")
-Create-ADUserFromSecret "akumar-ad-credentials" "Amit" "Kumar" "Amit Kumar" "akumar@mikecloud.com" "akumar" @("mcloud-users", "india")
+Create-ADUserFromSecret "jsmith-ad-credentials-ad" "John" "Smith" "John Smith" "jsmith@mcloud.mikecloud.com" "jsmith" @("mcloud-users", "us", "linux-admins")
+Create-ADUserFromSecret "edavis-ad-credentials-ad" "Emily" "Davis" "Emily Davis" "edavis@mikecloud.com" "edavis" @("mcloud-users", "us")
+Create-ADUserFromSecret "rpatel-ad-credentials-ad" "Raj" "Patel" "Raj Patel" "rpatel@mikecloud.com" "rpatel" @("mcloud-users", "india", "linux-admins")
+Create-ADUserFromSecret "akumar-ad-credentials-ad" "Amit" "Kumar" "Amit Kumar" "akumar@mikecloud.com" "akumar" @("mcloud-users", "india")
 
 # ------------------------------------------------------------
 # Grant RDP Access to All Users in "mcloud-users" Group

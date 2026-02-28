@@ -1,34 +1,51 @@
-# This resource block creates a Google Managed Active Directory domain within Google Cloud.
+# ==============================================================================
+# directory.tf
+# ------------------------------------------------------------------------------
+# Purpose:
+#   - Provision a Google Managed Active Directory domain.
+#   - Attach the domain to an existing VPC network.
+#   - Reserve a dedicated subnet range for domain controllers.
+#
+# Notes:
+#   - Managed AD requires a dedicated /24 CIDR block.
+#   - The reserved range must not overlap other VPC subnets.
+#   - deletion_protection should be true for production use.
+# ==============================================================================
 
 resource "google_active_directory_domain" "mikecloud_ad" {
 
-  # The fully qualified domain name (FQDN) of the Active Directory domain being created.
-  # This is the "root" of the AD namespace and must follow standard AD naming conventions (e.g., a subdomain of an existing DNS name you own).
-
+  # ----------------------------------------------------------------------------
+  # Domain Name
+  # ----------------------------------------------------------------------------
+  # Fully qualified domain name (FQDN) for the AD forest root.
+  # Must follow standard AD naming conventions.
   domain_name = "mcloud.mikecloud.com"
 
-  # Specifies the Google Cloud regions where this AD domain will be deployed.
-  # Managed AD requires at least one region, but can support multiple for redundancy.
-  # In this case, we are deploying to `us-central1` — which is a common GCP region in the central United States.
-  
+  # ----------------------------------------------------------------------------
+  # Deployment Regions
+  # ----------------------------------------------------------------------------
+  # Regions where Managed AD domain controllers will be deployed.
+  # At least one region is required.
   locations = ["us-central1"]
 
-  # Defines a **/24** IP range that will be reserved exclusively for this AD domain within the VPC network.
-  # GCP Managed AD requires a dedicated subnet that it manages — no other resources should use this CIDR block.
-  # This range should not overlap with any other subnets in the VPC.
-  
+  # ----------------------------------------------------------------------------
+  # Reserved IP Range
+  # ----------------------------------------------------------------------------
+  # Dedicated /24 CIDR block reserved exclusively for Managed AD.
+  # Must not overlap with existing VPC subnet ranges.
   reserved_ip_range = "192.168.255.0/24"
 
-  # Associates this AD domain with a specific VPC network in GCP.
-  # This network must already exist (created separately, probably via a `google_compute_network` resource).
-  # The AD domain controllers (managed by GCP) will live inside this network.
-  # Here, we're dynamically referencing the ID of the `ad_vpc` network, assumed to be defined elsewhere in your Terraform code.
-  
+  # ----------------------------------------------------------------------------
+  # Authorized Networks
+  # ----------------------------------------------------------------------------
+  # VPC network where Managed AD domain controllers will reside.
+  # References an existing google_compute_network resource.
   authorized_networks = [google_compute_network.ad_vpc.id]
 
-  # Controls whether or not this AD domain is protected from accidental deletion.
-  # Setting this to `false` means the domain can be deleted by Terraform without additional safety checks.
-  # For production environments, this is usually `true` to prevent accidental destruction of critical infrastructure.
-  
+  # ----------------------------------------------------------------------------
+  # Deletion Protection
+  # ----------------------------------------------------------------------------
+  # Prevents accidental deletion when set to true.
+  # Should typically be true in production environments.
   deletion_protection = false
 }

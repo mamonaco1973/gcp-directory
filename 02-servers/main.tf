@@ -1,23 +1,48 @@
-# Google Cloud Provider Configuration
-# Configures the Google Cloud provider using project details and credentials from a JSON file.
+# ==============================================================================
+# main.tf
+# ------------------------------------------------------------------------------
+# Purpose:
+#   - Configure the Google Cloud provider.
+#   - Load credentials from JSON file.
+#   - Lookup existing VPC and subnet resources.
+#
+# Notes:
+#   - Credentials file must exist at ../credentials.json.
+#   - jsondecode() converts JSON into a usable map.
+#   - Data sources reference pre-existing network resources.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Provider Configuration
+# ------------------------------------------------------------------------------
+# Configure Google provider using project ID and credentials file.
 provider "google" {
-  project     = local.credentials.project_id             # Specifies the project ID extracted from the decoded credentials file.
-  credentials = file("../credentials.json")               # Path to the credentials JSON file for Google Cloud authentication.
+  project     = local.credentials.project_id
+  credentials = file("../credentials.json")
 }
 
+# ------------------------------------------------------------------------------
 # Local Variables
-# Reads and decodes the credentials JSON file to extract useful details like project ID and service account email.
+# ------------------------------------------------------------------------------
+# Decode credentials file and extract reusable values.
 locals {
-  credentials            = jsondecode(file("../credentials.json")) # Decodes the JSON file into a map for easier access.
-  service_account_email  = local.credentials.client_email          # Extracts the service account email from the decoded JSON map.
+  credentials           = jsondecode(file("../credentials.json"))
+  service_account_email = local.credentials.client_email
 }
 
-
+# ------------------------------------------------------------------------------
+# Existing VPC Lookup
+# ------------------------------------------------------------------------------
+# Retrieve existing VPC by name.
 data "google_compute_network" "ad_vpc" {
-  name = "ad-vpc"
+  name = var.vpc
 }
 
+# ------------------------------------------------------------------------------
+# Existing Subnet Lookup
+# ------------------------------------------------------------------------------
+# Retrieve existing subnet by name and region.
 data "google_compute_subnetwork" "ad_subnet" {
-  name    = "ad-subnet"
-  region  = "us-central1"  
+  name   = var.subnet
+  region = "us-central1"
 }

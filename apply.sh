@@ -1,87 +1,107 @@
 #!/bin/bash
+# ==============================================================================
+# apply.sh
+# ------------------------------------------------------------------------------
+# Purpose:
+#   - Validate local environment prerequisites.
+#   - Deploy Managed AD (Terraform) in 01-directory.
+#   - Ensure admin credentials exist in Secret Manager:
+#       - If missing, reset Managed AD admin password and store as a secret.
+#
+# Notes:
+#   - Exits immediately on failures in prerequisite checks or Terraform apply.
+#   - Requires: gcloud, terraform, jq, and authenticated gcloud context.
+#   - Script currently exits before Phase 2 (02-servers) due to exit 0.
+# ==============================================================================
 
-# Run the environment check script to ensure required environment variables, tools, or configurations are present.
+# ------------------------------------------------------------------------------
+# Pre-flight: Validate environment prerequisites
+# ------------------------------------------------------------------------------
 ./check_env.sh
 if [ $? -ne 0 ]; then
-  # If the check_env script exits with a non-zero status, it indicates a failure.
   echo "ERROR: Environment check failed. Exiting."
-  exit 1  # Stop script execution immediately if environment check fails.
+  exit 1
 fi
 
-# Phase 1 of the build - Build active directory
+# ------------------------------------------------------------------------------
+# Phase 1: Deploy Managed AD (Terraform)
+# ------------------------------------------------------------------------------
 cd 01-directory
 
-# Initialize Terraform (download providers, set up backend, etc.).
+# Initialize Terraform for directory deployment.
 terraform init
 
-# Apply the Terraform configuration, automatically approving all changes (no manual confirmation required).
+# Apply directory resources without interactive approval.
 terraform apply -auto-approve
-
 if [ $? -ne 0 ]; then
   echo "ERROR: Terraform apply failed in 01-directory. Exiting."
   exit 1
 fi
 
-# Return to the previous (parent) directory.
+# Return to repository root.
 cd ..
 
-# Log a note that the script will attempt to retrieve the domain administrator password.
+# ------------------------------------------------------------------------------
+# Admin Credentials: Ensure secret exists (reset if missing)
+# ------------------------------------------------------------------------------
 echo "NOTE: Retrieving domain password for mcloud.mikecloud.com."
 
-# Attempt to fetch the latest version of the 'admin-ad-credentials' secret from Google Cloud Secret Manager.
-# Redirect errors to /dev/null to suppress warnings if the secret doesn't exist.
-# If the secret doesn't exist, this command will still succeed (with empty output), thanks to '|| true'.
-admin_credentials=$(gcloud secrets versions access latest --secret="admin-ad-credentials" 2> /dev/null || true)
+# Attempt to read the latest admin credentials secret (ignore failures).
+admin_credentials=$(gcloud secrets versions access latest \
+  --secret="admin-ad-credentials-ad" 2> /dev/null || true)
 
-# Check if the secret retrieval returned an empty string (meaning the secret does not yet exist).
+# If secret is missing/empty, reset admin password and store new secret version.
 if [[ -z "$admin_credentials" ]]; then
-   # If no credentials exist, it means we need to reset the admin password for the Managed AD domain.
+  echo "NOTE: Credentials need to be reset for 'mcloud.mikecloud.com'"
 
-   echo "NOTE: Credentials need to be reset for 'mcloud.mikecloud.com'"
+  # Reset Managed AD admin password and capture JSON output.
+  output=$(gcloud active-directory domains reset-admin-password \
+    "mcloud.mikecloud.com" --quiet --format=json)
 
-   # Use gcloud to reset the domain's admin password, outputting the result in JSON format.
-   # --quiet suppresses interactive prompts.
-   output=$(gcloud active-directory domains reset-admin-password "mcloud.mikecloud.com" --quiet --format=json)
+  # Extract password from JSON.
+  admin_password=$(echo "$output" | jq -r '.password')
 
-   # Extract the new password from the JSON response using jq.
-   admin_password=$(echo "$output" | jq -r '.password')
+  # Fail if password extraction produced empty output.
+  if [[ -z "$admin_password" ]]; then
+    echo "ERROR: Failed to retrieve admin password for mcloud.mikecloud.com"
+    exit 1
+  fi
 
-   # If the password is empty (unexpected case), fail and exit.
-   if [[ -z "$admin_password" ]]; then
-    	echo "ERROR: Failed to retrieve admin password for mcloud.mikecloud.com"
-    	exit 1
-   fi
+  # Build username in DOMAIN\\user format.
+  username="MCLOUD\\setupadmin"
 
-   # Define the expected admin username in the correct format (domain\user).
-   username="MCLOUD\\setupadmin"
+  # Build JSON payload for Secret Manager.
+  json_payload=$(jq -n \
+    --arg username "$username" \
+    --arg password "$admin_password" \
+    '{username: $username, password: $password}')
 
-   # Construct a JSON payload containing the username and the newly reset password.
-   json_payload=$(jq -n \
-        --arg username "$username" \
-        --arg password "$admin_password" \
-        '{username: $username, password: $password}')
+  echo "NOTE: Storing new admin-ad-credentials-ad secret..."
 
-   # Log that the script will now store the new credentials in Secret Manager.
-   echo "NOTE: Storing new admin-ad-credentials secret..."
+  # Add a new secret version from stdin.
+  echo "$json_payload" | gcloud secrets versions add \
+    admin-ad-credentials-ad --data-file=-
 
-   # Pipe the JSON payload directly into gcloud to create a new version of the 'admin-ad-credentials' secret.
-   echo "$json_payload" | gcloud secrets versions add admin-ad-credentials --data-file=-
-
-   # Confirm that the secret was successfully updated.
-   echo "NOTE: 'admin-ad-credentials' secret has been updated."
+  echo "NOTE: 'admin-ad-credentials-ad' secret has been updated."
 else
-   # If the secret already exists, log a note that no password reset was needed.
-   echo "NOTE: 'admin-ad-credentials' secret already exists. No action taken."
+  echo "NOTE: 'admin-ad-credentials-ad' secret already exists. No action taken."
 fi
 
-# Phase 2 of the build - Build VMs connected to active directory
+# ------------------------------------------------------------------------------
+# Exit (Phase 2 currently unreachable due to this exit)
+# ------------------------------------------------------------------------------
+exit 0
+
+# ------------------------------------------------------------------------------
+# Phase 2: Deploy servers joined to AD (Terraform)
+# ------------------------------------------------------------------------------
 cd 02-servers
 
-# Initialize Terraform (download providers, set up backend, etc.) for server deployment.
+# Initialize Terraform for server deployment.
 terraform init
 
-# Apply the Terraform configuration, automatically approving all changes (no manual confirmation required).
+# Apply server resources without interactive approval.
 terraform apply -auto-approve
 
-# Return to the parent directory once server provisioning is complete.
+# Return to repository root.
 cd ..
