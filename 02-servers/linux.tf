@@ -32,7 +32,7 @@ resource "google_compute_firewall" "allow_ssh" {
   name = "ad-allow-ssh"
 
   # Target VPC network.
-  network = "ad-vpc"
+  network = var.vpc
 
   # Allow TCP port 22 (SSH).
   allow {
