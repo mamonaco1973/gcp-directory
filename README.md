@@ -1,191 +1,159 @@
-# **Google Managed Microsoft AD**  
+# Managed Microsoft AD on GCP
 
-This is Part 3 of the Series: [Deploying Active Directory in the Cloud](https://youtu.be/H5lKJPJBL5s)  
+Part 3 of the series
+[Deploying Active Directory in the Cloud](https://youtu.be/H5lKJPJBL5s).
+Terraform builds Google's **Managed Service for Microsoft Active
+Directory**, `apply.sh` resets its built-in admin's password into Secret
+Manager, and a Linux and a Windows VM join the domain at boot. The Windows
+VM also creates the lab's users and groups, with the POSIX attributes Linux
+needs.
 
-## **Introduction**  
+| Piece | Where | Role |
+|---|---|---|
+| **Managed Microsoft AD** | `us-central1`, reserved range 192.168.255.0/24 | domain `mcloud.mikecloud.com`; authorized for `managed-ad-vpc`; admin `MCLOUD\setupadmin` |
+| **linux-ad VM** | `managed-ad-subnet` (10.1.0.0/24), public IP | Ubuntu 24.04, `e2-micro`; joins with `realm` and SSSD; SSH with AD passwords |
+| **win-ad VM** | `managed-ad-subnet`, public IP | Windows Server 2022, `e2-standard-2`; joins the domain; installs RSAT; creates the AD groups and users |
+| **Secret Manager** | global | `admin-ad-credentials-ad` and `<user>-ad-credentials-ad` |
 
-In this video, we will demonstrate the deployment of **Google Managed Microsoft Active Directory (Managed AD)**, a fully managed **Active Directory** solution in Google Cloud, while covering the following tasks:  
+## Architecture
 
-- **Configure secure networking** by setting up subnets, firewall rules, and Cloud DNS to ensure seamless domain connectivity.  
-- **Deploy Google Managed Microsoft AD** to support domain-joined workloads.   
-- **Join both Windows and Linux servers** to the Active Directory domain.  
-- **Configure SSSD** ([System Security Services Daemon](https://sssd.io/)) for Linux authentication with Active Directory.  
-- **Integrate with Google Secret Manager** to securely store and retrieve administrator credentials.  
-- **Manage directory objects and policies**, including users, groups, and Organizational Units (OUs).  
-- **Clean up resources** by decommissioning all infrastructure provisioned during the process.  
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="architecture-dark.svg">
+  <img alt="Google's Managed Service for Microsoft Active Directory runs the domain on a reserved 192.168.255.0/24 range authorized for the VPC. After phase 1, apply.sh resets the setupadmin password and stores it in Secret Manager. An Ubuntu VM and a Windows Server 2022 VM with public IPs read that secret at boot and join the domain, the Linux one with realm and SSSD; the Windows one also creates the lab's groups and users with POSIX attributes. An SSH client reaches the Linux VM and an RDP client the Windows one." src="architecture-light.svg">
+</picture>
 
-This tutorial will help you understand **Google Managed Microsoft AD** and how to use it for **identity management in Google Cloud environments**.  
+Regenerate with `python3 make_diagram.py`.
 
-![GCP diagram](gcp-directory.png)
+- **`01-directory/`**: the VPC (`managed-ad-vpc`) with its subnet, the managed domain, and the
+  AD secrets in Secret Manager.
+- **`02-servers/`**: the Linux and Windows VMs and their firewall rules.
+
+## How the domain gets an admin
+
+The managed domain comes with a `setupadmin` account. After phase 1,
+`apply.sh` checks `admin-ad-credentials-ad`; if it's empty, it runs
+`gcloud active-directory domains reset-admin-password` and stores
+`MCLOUD\setupadmin` and the new password there. Re-runs keep the stored
+password.
+
+## How the members join
+
+1. **Windows** (`ad_join.ps1`, a Windows startup script): skips itself if the
+   VM is already joined; otherwise installs RSAT, reads the admin secret,
+   and joins with `Add-Computer`. It then creates a `Users` OU under
+   `OU=Cloud`, the groups, and, from each user's secret, the users, each with
+   a `uidNumber` and `gidNumber`; adds `mcloud-users` to Remote Desktop
+   Users; and reboots.
+2. **Linux** (`ad_join.sh`, a startup script): reads the admin secret and
+   joins with `realm join`. SSSD is set for short names and the POSIX IDs
+   stored in AD; home directories are created on first login; `linux-admins`
+   get passwordless sudo.
+
+| User | Groups | uidNumber | sudo on Linux |
+|---|---|---|---|
+| jsmith | mcloud-users, us, linux-admins | 10001 | yes |
+| edavis | mcloud-users, us | 10002 | no |
+| rpatel | mcloud-users, india, linux-admins | 10003 | yes |
+| akumar | mcloud-users, india | 10004 | no |
+
+| Group | gidNumber |
+|---|---|
+| mcloud-users | 10001 |
+| india | 10002 |
+| us | 10003 |
+| linux-admins | 10004 |
+
+## Firewall rules
+
+```
+internet ─22──▶ linux-ad VM
+internet ─3389─▶ win-ad VM
+```
+
+`ad-allow-ssh` and `ad-allow-rdp` allow `0.0.0.0/0`, by network tag; every
+login still needs an AD account. The managed domain has no public address.
 
 ## Prerequisites
 
 * [A Google Cloud Account](https://console.cloud.google.com/)
-* [Install gcloud CLI](https://cloud.google.com/sdk/docs/install) 
-* [Install Latest Terraform](https://developer.hashicorp.com/terraform/install)
+* [Install gcloud CLI](https://cloud.google.com/sdk/docs/install)
+* [Install Terraform](https://developer.hashicorp.com/terraform/install)
+* [Install jq](https://jqlang.github.io/jq/download/)
 
-If this is your first time watching our content, we recommend starting with this video: [GCP + Terraform: Easy Setup](https://youtu.be/3spJpYX4f7I). It provides a step-by-step guide to properly configure Terraform, Packer, and the gcloud CLI.
+Put a service account key in the repository root as `credentials.json`;
+`check_env.sh` activates it, and `api_setup.sh` enables the APIs the build
+needs. If this is your first time watching our content, we recommend
+starting with this video:
+[GCP + Terraform: Easy Setup](https://youtu.be/3spJpYX4f7I).
 
-## Download this Repository
+## Deploy
 
 ```bash
 git clone https://github.com/mamonaco1973/gcp-directory.git
 cd gcp-directory
+./apply.sh       # 1: VPC + Managed AD + secrets  (admin reset)  2: Linux and Windows VMs
 ```
 
-## Build the Code
+Phase 1 takes **20–40 minutes**, almost all of it Google creating the
+domain. After phase 2, the Windows VM needs several minutes to join, create
+the users and reboot; the Linux VM can't resolve AD users until they exist.
+`apply.sh` ends by running `validate.sh`:
 
-Run [check_env](check_env.sh) and [api_setup](api_setup.sh) then run [apply](apply.sh).
+```
+============================================================================
+Managed AD Quick Start - Validation Output (GCP)
+============================================================================
+
+NOTE: Windows RDP Host:      203.0.113.10
+NOTE: Linux SSH Host:        203.0.113.20
+```
+
+## Try it
+
+1. Get a user's password:
+
+   ```bash
+   gcloud secrets versions access latest --secret=rpatel-ad-credentials-ad \
+     | jq -r .password
+   ```
+
+2. Look at the domain in the console under **Managed Microsoft AD**:
+
+   ![Managed Microsoft AD](console1.png)
+
+   ![VM instances](console2.png)
+
+3. RDP to the **Windows RDP Host** as `MCLOUD\rpatel`. **Active Directory
+   Users and Computers** shows the users and groups the VM created.
+
+   ![Windows VM](windows.png)
+
+4. SSH to the **Linux SSH Host** as `rpatel`. Try `id`,
+   `getent group linux-admins` and `sudo -l`.
+
+   ![Linux VM](linux.png)
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| Phase 1 seems stuck | Creating the managed domain takes 20–40 minutes. |
+| `id <user>` finds nothing on Linux | The Windows VM hasn't created the users yet. SSSD caches lookups; `sudo sss_cache -E` clears it. |
+| SSH rejects every AD password | `sudo journalctl -u google-startup-scripts` on the Linux VM shows the join. |
+| `jsmith` doesn't exist | See the known issue below. |
+
+## Teardown
 
 ```bash
-develop-vm:~/gcp-directory$ ./check_env.sh
-NOTE: Validating that required commands are found in the PATH.
-NOTE: gcloud is found in the current PATH.
-NOTE: terraform is found in the current PATH.
-NOTE: All required commands are available.
-NOTE: Validating credentials.json and test the gcloud command
-Activated service account credentials for: [terraform-build@debug-project-446221.iam.gserviceaccount.com]
-develop-vm:~/gcp-directory$ ./api_setup.sh
-NOTE: Validating credentials.json and test the gcloud command
-Activated service account credentials for: [terraform-build@debug-project-446221.iam.gserviceaccount.com]
-NOTE: Enabling APIs needed for build.
-Updated property [core/project].
-develop-vm:~/gcp-directory$ ./apply.sh
-NOTE: Validating that required commands are found in the PATH.
-NOTE: gcloud is found in the current PATH.
-NOTE: terraform is found in the current PATH.
-NOTE: All required commands are available.
-NOTE: Validating credentials.json and test the gcloud command
-Activated service account credentials for: [terraform-build@debug-project-446221.iam.gserviceaccount.com]
-Initializing the backend...
-Initializing provider plugins...
-- Finding latest version of hashicorp/random...
-- Finding latest version of hashicorp/google...
-- Installing hashicorp/random v3.7.1...
-- Installed hashicorp/random v3.7.1 (signed by HashiCorp)
-- Installing hashicorp/google v6.24.0...
-- Installed hashicorp/google v6.24.0 (signed by HashiCorp)
-Terraform has created a lock file .terraform.lock.hcl to record the provider
-selections it made above. Include this file in your version control repository
-so that Terraform can guarantee to make the same selections by default when
-you run "terraform init" in the future.
-
-Terraform has been successfully initialized!
-[...]
+./destroy.sh     # destroys the VMs, then the managed domain, VPC and secrets
 ```
 
-### Build Process Overview  
+## Notes
 
-The build process consists of two phases:  
-
-1. **Phase 1:** Use Terraform to provision the required networking and deploy the Managed Active Directory instance. This phase takes approximately **20-40 minutes** to complete.  
-2. **Phase 2:** Once the directory service is provisioned, deploy a Linux and a Windows VM instance. Their respective **startup scripts** will automatically join them to the domain during initialization.  
-
-## Tour of Build Output in the GCP Console
-
-- **The Managed Active Directory Instance**
-- **Secrets Manager**
-- **The Windows VM Instance**
-- **The Linux VM Instance**
-
-![GCP Console](console1.png)
-
-![GCP Console](console2.png) 
-
-### Retrieving Initial Admin Credentials
-
-Once **Google Managed Microsoft AD** is provisioned, Google automatically creates the **`setupadmin`** account within the directory. This account has **Domain Admin** privileges, allowing you to perform administrative tasks like creating Organizational Units (OUs), managing Group Policy, and adding users.  
-
-The initial password for the `setupadmin` account can be retrieved directly via **gcloud CLI** (`gcloud active-directory domains reset-admin-password "mcloud.mikecloud.com"`) or the **Google Cloud Console**.  
-
-In this project, we automate this by storing the **`setupadmin`** credentials in **Google Secret Manager** using a secret named `admin_ad_credentials`.
-
-This allows Terraform and shell scripts to dynamically retrieve credentials for subsequent automation steps, such as joining servers to the domain.
-
-### Users and Groups
-
-As part of this project, when the Windows instance boots and successfully joins Active Directory, a set of **users** and **groups** are automatically created through a scripted process. These resources are intended for **testing and demonstration purposes**, showcasing how to automate user and group provisioning in a cloud-integrated Active Directory environment.
-
-#### Groups Created
-
-| Group Name    | Group Category | Group Scope | gidNumber |
-|----------------|----------------|----------------|------------|
-| mcloud-users   | Security       | Universal     | 10001 |
-| india          | Security       | Universal     | 10002 |
-| us             | Security       | Universal     | 10003 |
-| linux-admins   | Security       | Universal     | 10004 |
-
-#### Users Created and Group Memberships
-
-| Username | Full Name   | uidNumber | gidNumber | Groups Joined                    |
-|---------|------------|-----------|-----------|----------------------|
-| jsmith  | John Smith  | 10001 | 10001 | mcloud-users, us, linux-admins |
-| edavis  | Emily Davis | 10002 | 10001 | mcloud-users, us |
-| rpatel  | Raj Patel   | 10003 | 10001 | mcloud-users, india, linux-admins |
-| akumar  | Amit Kumar  | 10004 | 10001 | mcloud-users, india |
-
----
-
-
-#### Understanding `uidNumber` and `gidNumber` for Linux Integration
-
-The **`uidNumber`** (User ID) and **`gidNumber`** (Group ID) attributes are critical when integrating **Active Directory** with **Linux systems**, particularly in environments where **SSSD** ([System Security Services Daemon](https://sssd.io/)) or similar services are used for identity management. These attributes allow Linux hosts to recognize and map Active Directory users and groups into the **POSIX** (Portable Operating System Interface) user and group model.
-
-### Log into Windows Instance  
-
-After the Windows instance boots, the [startup script](02-servers/scripts/ad_join.ps1) executes which does the following tasks   
-
-- Install Active Directory Administrative Tools  
-- AWS CLI Installation  
-- Join EC2 Instance to Active Directory  
-- Create Active Directory Groups  
-- Create Active Directory Users and Assign to Groups  
-- Grant RDP Access  
-- Final System Reboot  
-
-Administrator credentials are stored in the `admin_ad_credentials` secret.
-
-![Windows VM Instance](windows.png)
-
-### Log into Linux Instance  
-
-When the Linux instance boots, the [startup script](02-servers/scripts/ad_join.sh) runs the following tasks:  
-
-- Update OS and install required packages  
-- Install AWS CLI  
-- Join the Active Directory domain with SSSD  
-- Enable password authentication for AD users  
-- Configure SSSD for AD integration  
-- Grant sudo privileges to the `linux-admins` group  
-
-Linux user credentials are stored as secrets.
-
-![Linux VM Instance](linux.png) 
-
-## Run the "destroy" script when you are done
-
-```bash
-develop-vm:~/gcp-directory$ ./destroy.sh
-Initializing the backend...
-Initializing provider plugins...
-- Reusing previous version of hashicorp/google from the dependency lock file
-- Reusing previous version of hashicorp/random from the dependency lock file
-- Using previously-installed hashicorp/google v6.24.0
-- Using previously-installed hashicorp/random v3.7.1
-
-Terraform has been successfully initialized!
-
-You may now begin working with Terraform. Try running "terraform plan" to see
-any changes that are required for your infrastructure. All Terraform commands
-should now work.
-
-If you ever set or change modules or backend configuration for Terraform,
-rerun this command to reinitialize your working directory. If you forget, other
-commands will detect it and remind you to do so if necessary.
-random_string.vm_suffix: Refreshing state... [id=qewil5]
-data.google_compute_network.ad_vpc: Reading...
-data.google_compute_image.ubuntu_latest: Reading...
-data.google_compute_image.windows_2022: Reading...
-[...]
-```
-
+- **Lab only.** SSH and RDP are open to the internet, both joins use the
+  domain admin, and the VMs run as the same service account as Terraform
+  with the `cloud-platform` scope. Restrict the firewall rules and use a
+  dedicated join account for anything more.
+- **Known issue:** Terraform names jsmith's secret `jsmith-ad-credential-ad`
+  (no "s"), but `ad_join.ps1` reads `jsmith-ad-credentials-ad`, so the
+  Windows VM can't create jsmith. The other three users are unaffected.
